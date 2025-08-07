@@ -27,18 +27,41 @@ def save_categories():
     with open(category_file, "w") as f:
         json.dump(st.session_state.categories, f)
 
+def categorize_transactions(df):
+    df["Category"] = "Uncategorized"
+
+    for category, keywords in st.session_state.categories:
+        if category == "Uncategorized" or not keywords:
+            continue
+
+        lowered_keywords = [keyword.lower().strip() for keyword in keywords]
+
+        for idx, row in df.iterrows():
+            details = row["Details"].lower().strip()
+            if details in lowered_keywords:
+                df.at[idx, "Category"] = category
+    return df
+
 def load_transactions(file):
     try:
         df = pd.read_csv(file)
         df.columns = [col.strip() for col in df.columns]
         df["Amount"] = df["Amount"].str.replace(",", "").astype(float)
         df["Date"] = pd.to_datetime(df["Date"], format="%d %b %Y")
-        return df
+
+        return categorize_transactions(df)
     
     except Exception as e:
         st.error(f"Error processing file: {str(e)}")
         return None
-        
+
+def add_keyword_to_category(category, keyword):
+    keyword = keyword.strip()
+    if keyword and keyword not in st.session_state.categories[category]:
+        st.session_state.categories[category].append(keyword)
+        save_categories()
+        return True
+
 
 def main():
     st.title("Simple Finance Dashboard")
